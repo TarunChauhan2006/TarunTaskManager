@@ -14,22 +14,26 @@ A modern full-stack task management application built with React and FastAPI.
 - 🔒 JWT Authentication
 - ⚡ FastAPI Backend
 - ⚛️ React Frontend
+- 📱 Responsive User Interface
 
 ## 🛠️ Tech Stack
 
 ### Frontend
+
 - React
 - Vite
 - JavaScript
 - CSS
 
 ### Backend
+
 - Python
 - FastAPI
 - SQLAlchemy
 - JWT Authentication
 
 ### Database
+
 - SQLite (Development)
 - PostgreSQL (Production)
 
@@ -43,11 +47,14 @@ TarunTaskManager/
 │   ├── schemas/
 │   ├── auth.py
 │   ├── database.py
-│   └── main.py
+│   ├── main.py
+│   └── requirements.txt
 │
 ├── frontend/
 │   ├── src/
 │   ├── public/
-│   └── package.json
+│   ├── package.json
+│   └── vite.config.js
 │
+├── .gitignore
 └── README.md
