@@ -58,3 +58,31 @@ TarunTaskManager/
 │
 ├── .gitignore
 └── README.md
+🚀 Local Setup
+1. Clone the Repository
+git clone https://github.com/TarunChauhan2006/TarunTaskManager.git
+cd TarunTaskManager
+2. Backend Setup
+cd backend
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+Start the backend:
+
+uvicorn main:app --reload
+
+Backend runs at:
+
+http://127.0.0.1:8000
+3. Frontend Setup
+
+Open a new terminal:
+
+cd frontend
+npm install
+npm run dev
+
+Frontend runs at:
+
+http://localhost:5173
