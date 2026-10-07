@@ -3,10 +3,6 @@ from datetime import datetime
 from typing import Optional
 
 
-# =========================
-# AUTH SCHEMAS
-# =========================
-
 class UserCreate(BaseModel):
     name: str
     email: EmailStr
@@ -33,15 +29,12 @@ class Token(BaseModel):
     token_type: str
 
 
-# =========================
-# TASK SCHEMAS
-# =========================
-
 class TaskCreate(BaseModel):
     title: str
     description: Optional[str] = None
     priority: str = "Medium"
     due_date: Optional[datetime] = None
+    assignee_id: Optional[int] = None
 
 
 class TaskUpdate(BaseModel):
@@ -51,6 +44,7 @@ class TaskUpdate(BaseModel):
     status: Optional[str] = None
     due_date: Optional[datetime] = None
     completed: Optional[bool] = None
+    assignee_id: Optional[int] = None
 
 
 class TaskResponse(BaseModel):
@@ -63,6 +57,7 @@ class TaskResponse(BaseModel):
     completed: bool
     created_at: datetime
     owner_id: int
+    assignee_id: Optional[int]
 
     class Config:
         from_attributes = True

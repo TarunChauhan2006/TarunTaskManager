@@ -9,14 +9,12 @@ from sqlalchemy import (
 )
 
 from sqlalchemy.orm import relationship
-
 from datetime import datetime
 
 from database import Base
 
 
 class User(Base):
-
     __tablename__ = "users"
 
     id = Column(
@@ -47,15 +45,23 @@ class User(Base):
         default=datetime.utcnow
     )
 
+    # Tasks created by this user
     tasks = relationship(
         "Task",
         back_populates="owner",
+        foreign_keys="Task.owner_id",
         cascade="all, delete-orphan"
+    )
+
+    # Tasks assigned to this user
+    assigned_tasks = relationship(
+        "Task",
+        back_populates="assignee",
+        foreign_keys="Task.assignee_id"
     )
 
 
 class Task(Base):
-
     __tablename__ = "tasks"
 
     id = Column(
@@ -101,13 +107,28 @@ class Task(Base):
         default=datetime.utcnow
     )
 
+    # User who created the task
     owner_id = Column(
         Integer,
         ForeignKey("users.id"),
         nullable=False
     )
 
+    # User who is assigned the task
+    assignee_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=True
+    )
+
     owner = relationship(
         "User",
-        back_populates="tasks"
+        back_populates="tasks",
+        foreign_keys=[owner_id]
+    )
+
+    assignee = relationship(
+        "User",
+        back_populates="assigned_tasks",
+        foreign_keys=[assignee_id]
     )

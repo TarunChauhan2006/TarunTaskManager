@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 
-const API_URL = "http://127.0.0.1:8000";
+const API_URL =
+  import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
 const emptyTask = {
   title: "",
@@ -9,10 +10,12 @@ const emptyTask = {
   priority: "Medium",
   status: "Pending",
   due_date: "",
+  assignee_id: "",
 };
 
 function App() {
   const [user, setUser] = useState(null);
+
   const [token, setToken] = useState(
     localStorage.getItem("tarun_token")
   );
@@ -26,17 +29,13 @@ function App() {
   });
 
   const [tasks, setTasks] = useState([]);
-
+  const [users, setUsers] = useState([]);
   const [taskForm, setTaskForm] = useState(emptyTask);
-
   const [editingTask, setEditingTask] = useState(null);
-
   const [showModal, setShowModal] = useState(false);
 
   const [search, setSearch] = useState("");
-
   const [statusFilter, setStatusFilter] = useState("All");
-
   const [priorityFilter, setPriorityFilter] = useState("All");
 
   const [darkMode, setDarkMode] = useState(
@@ -44,15 +43,15 @@ function App() {
   );
 
   const [page, setPage] = useState("dashboard");
-
   const [loading, setLoading] = useState(false);
-
   const [error, setError] = useState("");
 
+  // =====================================================
+  // DARK MODE
+  // =====================================================
+
   useEffect(() => {
-    document.body.className = darkMode
-      ? "dark"
-      : "";
+    document.body.className = darkMode ? "dark" : "";
 
     localStorage.setItem(
       "tarun_dark",
@@ -60,12 +59,44 @@ function App() {
     );
   }, [darkMode]);
 
+  // =====================================================
+  // GOOGLE OAUTH + SESSION
+  // =====================================================
+
   useEffect(() => {
+    const params = new URLSearchParams(
+      window.location.search
+    );
+
+    const oauthToken = params.get("token");
+
+    if (oauthToken) {
+      localStorage.setItem(
+        "tarun_token",
+        oauthToken
+      );
+
+      setToken(oauthToken);
+
+      window.history.replaceState(
+        {},
+        document.title,
+        window.location.pathname
+      );
+
+      return;
+    }
+
     if (token) {
       loadUser();
       loadTasks();
+      loadUsers();
     }
   }, [token]);
+
+  // =====================================================
+  // API HELPER
+  // =====================================================
 
   const apiFetch = async (
     endpoint,
@@ -96,6 +127,10 @@ function App() {
     return response;
   };
 
+  // =====================================================
+  // LOAD CURRENT USER
+  // =====================================================
+
   const loadUser = async () => {
     try {
       const response = await apiFetch(
@@ -103,7 +138,8 @@ function App() {
       );
 
       if (response.ok) {
-        const data = await response.json();
+        const data =
+          await response.json();
 
         setUser(data);
       }
@@ -112,6 +148,10 @@ function App() {
     }
   };
 
+  // =====================================================
+  // LOAD TASKS
+  // =====================================================
+
   const loadTasks = async () => {
     try {
       const response = await apiFetch(
@@ -119,7 +159,8 @@ function App() {
       );
 
       if (response.ok) {
-        const data = await response.json();
+        const data =
+          await response.json();
 
         setTasks(data);
       }
@@ -128,6 +169,34 @@ function App() {
     }
   };
 
+  // =====================================================
+  // LOAD USERS
+  // =====================================================
+
+  const loadUsers = async () => {
+    try {
+      const response = await apiFetch(
+        "/users/"
+      );
+
+      if (response.ok) {
+        const data =
+          await response.json();
+
+        setUsers(data);
+      }
+    } catch (err) {
+      console.error(
+        "Could not load users:",
+        err
+      );
+    }
+  };
+
+  // =====================================================
+  // AUTH FORM
+  // =====================================================
+
   const handleAuthChange = (e) => {
     setAuthForm({
       ...authForm,
@@ -135,12 +204,29 @@ function App() {
     });
   };
 
+  // =====================================================
+  // TASK FORM
+  // =====================================================
+
   const handleTaskChange = (e) => {
     setTaskForm({
       ...taskForm,
       [e.target.name]: e.target.value,
     });
   };
+
+  // =====================================================
+  // GOOGLE LOGIN
+  // =====================================================
+
+  const handleGoogleLogin = () => {
+    window.location.href =
+      `${API_URL}/auth/google/login`;
+  };
+
+  // =====================================================
+  // EMAIL/PASSWORD AUTH
+  // =====================================================
 
   const handleAuth = async (e) => {
     e.preventDefault();
@@ -234,25 +320,38 @@ function App() {
     }
   };
 
+  // =====================================================
+  // LOGOUT
+  // =====================================================
+
   const logout = () => {
     localStorage.removeItem(
       "tarun_token"
     );
 
     setToken(null);
-
     setUser(null);
-
     setTasks([]);
+    setUsers([]);
   };
+
+  // =====================================================
+  // CREATE TASK
+  // =====================================================
 
   const openCreate = () => {
     setEditingTask(null);
 
-    setTaskForm(emptyTask);
+    setTaskForm({
+      ...emptyTask,
+    });
 
     setShowModal(true);
   };
+
+  // =====================================================
+  // EDIT TASK
+  // =====================================================
 
   const openEdit = (task) => {
     setEditingTask(task);
@@ -266,20 +365,38 @@ function App() {
       status:
         task.status || "Pending",
       due_date: task.due_date
-        ? task.due_date.substring(0, 10)
+        ? task.due_date.substring(
+            0,
+            10
+          )
         : "",
+      assignee_id:
+        task.assignee_id
+          ? String(
+              task.assignee_id
+            )
+          : "",
     });
 
     setShowModal(true);
   };
 
+  // =====================================================
+  // CLOSE MODAL
+  // =====================================================
+
   const closeModal = () => {
     setShowModal(false);
-
     setEditingTask(null);
 
-    setTaskForm(emptyTask);
+    setTaskForm({
+      ...emptyTask,
+    });
   };
+
+  // =====================================================
+  // SAVE TASK
+  // =====================================================
 
   const saveTask = async (e) => {
     e.preventDefault();
@@ -288,12 +405,29 @@ function App() {
 
     try {
       const payload = {
-        ...taskForm,
-        due_date: taskForm.due_date
-          ? new Date(
-              taskForm.due_date
-            ).toISOString()
-          : null,
+        title: taskForm.title,
+        description:
+          taskForm.description || null,
+
+        priority:
+          taskForm.priority,
+
+        status:
+          taskForm.status,
+
+        due_date:
+          taskForm.due_date
+            ? new Date(
+                taskForm.due_date
+              ).toISOString()
+            : null,
+
+        assignee_id:
+          taskForm.assignee_id
+            ? Number(
+                taskForm.assignee_id
+              )
+            : null,
       };
 
       let response;
@@ -340,6 +474,10 @@ function App() {
     }
   };
 
+  // =====================================================
+  // DELETE TASK
+  // =====================================================
+
   const deleteTask = async (id) => {
     if (
       !window.confirm(
@@ -359,36 +497,72 @@ function App() {
         );
 
       if (response.ok) {
-        loadTasks();
+        await loadTasks();
+      } else {
+        const data =
+          await response.json();
+
+        alert(
+          data.detail ||
+            "Could not delete task"
+        );
       }
     } catch (err) {
       alert(err.message);
     }
   };
 
+  // =====================================================
+  // COMPLETE / REOPEN TASK
+  // =====================================================
+
   const toggleTask = async (task) => {
     try {
-      await apiFetch(
-        `/tasks/${task.id}`,
-        {
-          method: "PUT",
-          body: JSON.stringify({
-            completed:
-              !task.completed,
+      let response;
 
-            status:
-              !task.completed
-                ? "Completed"
-                : "Pending",
-          }),
-        }
-      );
+      if (task.completed) {
+        // Reopen completed task
+        response = await apiFetch(
+          `/tasks/${task.id}`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              completed: false,
+              status: "Pending",
+            }),
+          }
+        );
+      } else {
+        // Complete task
+        // This endpoint also triggers
+        // Gmail notification from backend.
+        response = await apiFetch(
+          `/tasks/${task.id}/complete`,
+          {
+            method: "PATCH",
+          }
+        );
+      }
 
-      loadTasks();
+      if (!response.ok) {
+        const data =
+          await response.json();
+
+        throw new Error(
+          data.detail ||
+            "Could not update task"
+        );
+      }
+
+      await loadTasks();
     } catch (err) {
       alert(err.message);
     }
   };
+
+  // =====================================================
+  // FILTER TASKS
+  // =====================================================
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
@@ -425,6 +599,10 @@ function App() {
     priorityFilter,
   ]);
 
+  // =====================================================
+  // DASHBOARD STATS
+  // =====================================================
+
   const total = tasks.length;
 
   const completed =
@@ -448,6 +626,10 @@ function App() {
         task.priority === "High" &&
         !task.completed
     ).length;
+
+  // =====================================================
+  // AUTH SCREEN
+  // =====================================================
 
   if (!token || !user) {
     return (
@@ -584,11 +766,33 @@ function App() {
 
           </form>
 
+          <div className="auth-divider">
+            <span>OR</span>
+          </div>
+
+          <button
+            type="button"
+            className="google-login-button"
+            onClick={
+              handleGoogleLogin
+            }
+          >
+            <span className="google-icon">
+              G
+            </span>
+
+            Continue with Google
+          </button>
+
         </div>
 
       </div>
     );
   }
+
+  // =====================================================
+  // MAIN APPLICATION
+  // =====================================================
 
   return (
     <div className="app">
@@ -596,6 +800,7 @@ function App() {
       <aside className="sidebar">
 
         <div className="brand">
+
           <div className="brand-icon">
             T
           </div>
@@ -603,6 +808,7 @@ function App() {
           <span>
             TarunTask
           </span>
+
         </div>
 
         <nav>
@@ -749,6 +955,8 @@ function App() {
 
         </header>
 
+        {/* DASHBOARD */}
+
         {page ===
           "dashboard" && (
           <>
@@ -811,18 +1019,23 @@ function App() {
               </div>
 
               <div className="progress-circle">
+
                 <strong>
                   {progress}%
                 </strong>
+
                 <span>
                   complete
                 </span>
+
               </div>
 
             </section>
 
           </>
         )}
+
+        {/* IMPORTANT */}
 
         {page ===
           "important" ? (
@@ -860,6 +1073,7 @@ function App() {
             onToggle={
               toggleTask
             }
+            users={users}
           />
         ) : page ===
           "calendar" ? (
@@ -896,6 +1110,7 @@ function App() {
             onToggle={
               toggleTask
             }
+            users={users}
           />
         ) : (
           <TaskList
@@ -930,10 +1145,13 @@ function App() {
             onToggle={
               toggleTask
             }
+            users={users}
           />
         )}
 
       </main>
+
+      {/* CREATE / EDIT MODAL */}
 
       {showModal && (
         <div
@@ -951,6 +1169,7 @@ function App() {
             <div className="modal-header">
 
               <div>
+
                 <h2>
                   {editingTask
                     ? "Edit Task"
@@ -961,6 +1180,7 @@ function App() {
                   Manage your task
                   details.
                 </p>
+
               </div>
 
               <button
@@ -1025,17 +1245,18 @@ function App() {
                       handleTaskChange
                     }
                   >
-                    <option>
+                    <option value="Low">
                       Low
                     </option>
 
-                    <option>
+                    <option value="Medium">
                       Medium
                     </option>
 
-                    <option>
+                    <option value="High">
                       High
                     </option>
+
                   </select>
 
                 </div>
@@ -1055,22 +1276,65 @@ function App() {
                       handleTaskChange
                     }
                   >
-                    <option>
+
+                    <option value="Pending">
                       Pending
                     </option>
 
-                    <option>
+                    <option value="In Progress">
                       In Progress
                     </option>
 
-                    <option>
+                    <option value="Completed">
                       Completed
                     </option>
+
                   </select>
 
                 </div>
 
               </div>
+
+              {/* ASSIGN USER */}
+
+              <label>
+                Assign To
+              </label>
+
+              <select
+                name="assignee_id"
+                value={
+                  taskForm.assignee_id
+                }
+                onChange={
+                  handleTaskChange
+                }
+              >
+
+                <option value="">
+                  No Assignee
+                </option>
+
+                {users.map(
+                  (userItem) => (
+                    <option
+                      key={
+                        userItem.id
+                      }
+                      value={
+                        userItem.id
+                      }
+                    >
+                      {userItem.name} (
+                      {
+                        userItem.email
+                      }
+                      )
+                    </option>
+                  )
+                )}
+
+              </select>
 
               <label>
                 Due Date
@@ -1091,7 +1355,9 @@ function App() {
                 className="submit-button"
                 disabled={loading}
               >
-                {editingTask
+                {loading
+                  ? "Saving..."
+                  : editingTask
                   ? "Update Task"
                   : "Create Task"}
               </button>
@@ -1108,6 +1374,10 @@ function App() {
 }
 
 
+// =======================================================
+// STAT COMPONENT
+// =======================================================
+
 function Stat({
   icon,
   label,
@@ -1121,6 +1391,7 @@ function Stat({
       </div>
 
       <div>
+
         <span>
           {label}
         </span>
@@ -1128,12 +1399,17 @@ function Stat({
         <strong>
           {value}
         </strong>
+
       </div>
 
     </div>
   );
 }
 
+
+// =======================================================
+// TASK LIST
+// =======================================================
 
 function TaskList({
   title,
@@ -1148,13 +1424,26 @@ function TaskList({
   onEdit,
   onDelete,
   onToggle,
+  users,
 }) {
+
+  const getAssignee = (
+    assigneeId
+  ) => {
+    return users.find(
+      (u) =>
+        Number(u.id) ===
+        Number(assigneeId)
+    );
+  };
+
   return (
     <section className="tasks-section">
 
       <div className="section-header">
 
         <div>
+
           <h2>
             {title}
           </h2>
@@ -1163,6 +1452,7 @@ function TaskList({
             Manage your tasks
             and stay productive.
           </p>
+
         </div>
 
         <button
@@ -1177,6 +1467,7 @@ function TaskList({
       <div className="filters">
 
         <div className="search-box">
+
           🔍
 
           <input
@@ -1188,6 +1479,7 @@ function TaskList({
               )
             }
           />
+
         </div>
 
         <select
@@ -1198,21 +1490,23 @@ function TaskList({
             )
           }
         >
-          <option>
+
+          <option value="All">
             All
           </option>
 
-          <option>
+          <option value="Pending">
             Pending
           </option>
 
-          <option>
+          <option value="In Progress">
             In Progress
           </option>
 
-          <option>
+          <option value="Completed">
             Completed
           </option>
+
         </select>
 
         <select
@@ -1223,21 +1517,23 @@ function TaskList({
             )
           }
         >
-          <option>
+
+          <option value="All">
             All
           </option>
 
-          <option>
+          <option value="High">
             High
           </option>
 
-          <option>
+          <option value="Medium">
             Medium
           </option>
 
-          <option>
+          <option value="Low">
             Low
           </option>
+
         </select>
 
       </div>
@@ -1270,104 +1566,123 @@ function TaskList({
         <div className="task-list">
 
           {tasks.map(
-            (task) => (
-              <div
-                className={
-                  task.completed
-                    ? "task-card completed"
-                    : "task-card"
-                }
-                key={task.id}
-              >
+            (task) => {
 
-                <button
+              const assignee =
+                getAssignee(
+                  task.assignee_id
+                );
+
+              return (
+                <div
                   className={
                     task.completed
-                      ? "check checked"
-                      : "check"
+                      ? "task-card completed"
+                      : "task-card"
                   }
-                  onClick={() =>
-                    onToggle(
-                      task
-                    )
-                  }
+                  key={task.id}
                 >
-                  {task.completed
-                    ? "✓"
-                    : ""}
-                </button>
-
-                <div className="task-content">
-
-                  <div className="task-title">
-
-                    <h3>
-                      {task.title}
-                    </h3>
-
-                    <span
-                      className={`priority ${task.priority.toLowerCase()}`}
-                    >
-                      {
-                        task.priority
-                      }
-                    </span>
-
-                  </div>
-
-                  {task.description && (
-                    <p>
-                      {
-                        task.description
-                      }
-                    </p>
-                  )}
-
-                  <div className="task-meta">
-
-                    <span>
-                      {task.status}
-                    </span>
-
-                    {task.due_date && (
-                      <span>
-                        📅{" "}
-                        {new Date(
-                          task.due_date
-                        ).toLocaleDateString()}
-                      </span>
-                    )}
-
-                  </div>
-
-                </div>
-
-                <div className="task-actions">
 
                   <button
+                    className={
+                      task.completed
+                        ? "check checked"
+                        : "check"
+                    }
                     onClick={() =>
-                      onEdit(
+                      onToggle(
                         task
                       )
                     }
                   >
-                    ✏️
+                    {task.completed
+                      ? "✓"
+                      : ""}
                   </button>
 
-                  <button
-                    onClick={() =>
-                      onDelete(
-                        task.id
-                      )
-                    }
-                  >
-                    🗑️
-                  </button>
+                  <div className="task-content">
+
+                    <div className="task-title">
+
+                      <h3>
+                        {task.title}
+                      </h3>
+
+                      <span
+                        className={`priority ${task.priority.toLowerCase()}`}
+                      >
+                        {
+                          task.priority
+                        }
+                      </span>
+
+                    </div>
+
+                    {task.description && (
+                      <p>
+                        {
+                          task.description
+                        }
+                      </p>
+                    )}
+
+                    <div className="task-meta">
+
+                      <span>
+                        {task.status}
+                      </span>
+
+                      {task.due_date && (
+                        <span>
+                          📅{" "}
+                          {new Date(
+                            task.due_date
+                          ).toLocaleDateString(
+                            "en-IN"
+                          )}
+                        </span>
+                      )}
+
+                      {assignee && (
+                        <span>
+                          👤{" "}
+                          {assignee.name}
+                        </span>
+                      )}
+
+                    </div>
+
+                  </div>
+
+                  <div className="task-actions">
+
+                    <button
+                      onClick={() =>
+                        onEdit(
+                          task
+                        )
+                      }
+                      title="Edit task"
+                    >
+                      ✏️
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        onDelete(
+                          task.id
+                        )
+                      }
+                      title="Delete task"
+                    >
+                      🗑️
+                    </button>
+
+                  </div>
 
                 </div>
-
-              </div>
-            )
+              );
+            }
           )}
 
         </div>
@@ -1378,6 +1693,10 @@ function TaskList({
 }
 
 
+// =======================================================
+// CALENDAR
+// =======================================================
+
 function CalendarView({
   tasks,
 }) {
@@ -1385,8 +1704,10 @@ function CalendarView({
 
   tasks.forEach(
     (task) => {
-      if (!task.due_date)
+
+      if (!task.due_date) {
         return;
+      }
 
       const date =
         task.due_date.substring(
@@ -1414,6 +1735,7 @@ function CalendarView({
       <div className="section-header">
 
         <div>
+
           <h2>
             Task Calendar
           </h2>
@@ -1422,6 +1744,7 @@ function CalendarView({
             Your upcoming
             deadlines.
           </p>
+
         </div>
 
       </div>
@@ -1448,6 +1771,7 @@ function CalendarView({
 
           {dates.map(
             (date) => (
+
               <div
                 className="calendar-day"
                 key={date}
@@ -1486,12 +1810,14 @@ function CalendarView({
                     date
                   ].map(
                     (task) => (
+
                       <div
                         className="calendar-task"
                         key={
                           task.id
                         }
                       >
+
                         <strong>
                           {
                             task.title
@@ -1503,13 +1829,16 @@ function CalendarView({
                             task.priority
                           }
                         </span>
+
                       </div>
+
                     )
                   )}
 
                 </div>
 
               </div>
+
             )
           )}
 

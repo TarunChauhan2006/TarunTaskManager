@@ -5,6 +5,7 @@ from database import get_db
 from models import Task, User
 from schemas import TaskCreate, TaskUpdate, TaskResponse
 from auth import get_current_user
+from services.gmail_service import send_email
 
 
 router = APIRouter(
@@ -13,9 +14,9 @@ router = APIRouter(
 )
 
 
-# =========================
+# =========================================================
 # CREATE TASK
-# =========================
+# =========================================================
 
 @router.post(
     "/",
@@ -27,24 +28,75 @@ def create_task(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    assignee = None
+
+    # Validate assigned user
+    if task_data.assignee_id is not None:
+
+        assignee = db.query(User).filter(
+            User.id == task_data.assignee_id
+        ).first()
+
+        if not assignee:
+            raise HTTPException(
+                status_code=404,
+                detail="Assigned user not found"
+            )
+
+    # Create task
     new_task = Task(
         title=task_data.title,
         description=task_data.description,
         priority=task_data.priority,
         due_date=task_data.due_date,
-        owner_id=current_user.id
+        owner_id=current_user.id,
+        assignee_id=task_data.assignee_id
     )
 
     db.add(new_task)
     db.commit()
     db.refresh(new_task)
 
+    # -----------------------------------------------------
+    # SEND EMAIL TO ASSIGNEE
+    # -----------------------------------------------------
+
+    if assignee:
+
+        try:
+            send_email(
+                to_email=assignee.email,
+                subject="New Task Assigned - Tarun Task Manager",
+                body=f"""
+Hello {assignee.name},
+
+You have been assigned a new task.
+
+Task: {new_task.title}
+Priority: {new_task.priority}
+
+Description:
+{new_task.description or "No description provided"}
+
+Assigned by:
+{current_user.name}
+
+Please login to Tarun Task Manager to view the task.
+
+Regards,
+Tarun Task Manager
+"""
+            )
+
+        except Exception as e:
+            print("Task assignment email failed:", e)
+
     return new_task
 
 
-# =========================
+# =========================================================
 # GET ALL TASKS
-# =========================
+# =========================================================
 
 @router.get(
     "/",
@@ -54,19 +106,20 @@ def get_tasks(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    tasks = (
-        db.query(Task)
-        .filter(Task.owner_id == current_user.id)
-        .order_by(Task.created_at.desc())
-        .all()
-    )
+
+    tasks = db.query(Task).filter(
+        (Task.owner_id == current_user.id) |
+        (Task.assignee_id == current_user.id)
+    ).order_by(
+        Task.created_at.desc()
+    ).all()
 
     return tasks
 
 
-# =========================
+# =========================================================
 # GET SINGLE TASK
-# =========================
+# =========================================================
 
 @router.get(
     "/{task_id}",
@@ -77,14 +130,14 @@ def get_task(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    task = (
-        db.query(Task)
-        .filter(
-            Task.id == task_id,
-            Task.owner_id == current_user.id
+
+    task = db.query(Task).filter(
+        Task.id == task_id,
+        (
+            (Task.owner_id == current_user.id) |
+            (Task.assignee_id == current_user.id)
         )
-        .first()
-    )
+    ).first()
 
     if not task:
         raise HTTPException(
@@ -95,9 +148,9 @@ def get_task(
     return task
 
 
-# =========================
+# =========================================================
 # UPDATE TASK
-# =========================
+# =========================================================
 
 @router.put(
     "/{task_id}",
@@ -109,14 +162,11 @@ def update_task(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    task = (
-        db.query(Task)
-        .filter(
-            Task.id == task_id,
-            Task.owner_id == current_user.id
-        )
-        .first()
-    )
+
+    task = db.query(Task).filter(
+        Task.id == task_id,
+        Task.owner_id == current_user.id
+    ).first()
 
     if not task:
         raise HTTPException(
@@ -124,6 +174,20 @@ def update_task(
             detail="Task not found"
         )
 
+    # Validate new assignee
+    if task_data.assignee_id is not None:
+
+        assignee = db.query(User).filter(
+            User.id == task_data.assignee_id
+        ).first()
+
+        if not assignee:
+            raise HTTPException(
+                status_code=404,
+                detail="Assigned user not found"
+            )
+
+    # Update only supplied fields
     update_data = task_data.model_dump(
         exclude_unset=True
     )
@@ -137,9 +201,9 @@ def update_task(
     return task
 
 
-# =========================
+# =========================================================
 # COMPLETE TASK
-# =========================
+# =========================================================
 
 @router.patch(
     "/{task_id}/complete",
@@ -150,14 +214,14 @@ def complete_task(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    task = (
-        db.query(Task)
-        .filter(
-            Task.id == task_id,
-            Task.owner_id == current_user.id
+
+    task = db.query(Task).filter(
+        Task.id == task_id,
+        (
+            (Task.owner_id == current_user.id) |
+            (Task.assignee_id == current_user.id)
         )
-        .first()
-    )
+    ).first()
 
     if not task:
         raise HTTPException(
@@ -165,18 +229,55 @@ def complete_task(
             detail="Task not found"
         )
 
+    # Mark completed
     task.completed = True
     task.status = "Completed"
 
     db.commit()
     db.refresh(task)
 
+    # -----------------------------------------------------
+    # SEND COMPLETION EMAIL TO TASK OWNER
+    # -----------------------------------------------------
+
+    try:
+
+        owner = db.query(User).filter(
+            User.id == task.owner_id
+        ).first()
+
+        if owner:
+
+            send_email(
+                to_email=owner.email,
+                subject="Task Completed - Tarun Task Manager",
+                body=f"""
+Hello {owner.name},
+
+Your task has been completed.
+
+Task:
+{task.title}
+
+Completed by:
+{current_user.name}
+
+The task status is now Completed.
+
+Regards,
+Tarun Task Manager
+"""
+            )
+
+    except Exception as e:
+        print("Task completion email failed:", e)
+
     return task
 
 
-# =========================
+# =========================================================
 # DELETE TASK
-# =========================
+# =========================================================
 
 @router.delete(
     "/{task_id}"
@@ -186,14 +287,11 @@ def delete_task(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    task = (
-        db.query(Task)
-        .filter(
-            Task.id == task_id,
-            Task.owner_id == current_user.id
-        )
-        .first()
-    )
+
+    task = db.query(Task).filter(
+        Task.id == task_id,
+        Task.owner_id == current_user.id
+    ).first()
 
     if not task:
         raise HTTPException(
