@@ -36,3 +36,5 @@ google-api-python-client
 authlib
 
 authlib
+
+httpx
