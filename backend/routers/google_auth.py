@@ -1,6 +1,6 @@
 import os
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from authlib.integrations.starlette_client import OAuth
@@ -30,7 +30,7 @@ oauth.register(
 
 
 @router.get("/login")
-async def google_login(request):
+async def google_login(request: Request):
     redirect_uri = os.getenv(
         "GOOGLE_REDIRECT_URI",
         "http://127.0.0.1:8000/auth/google/callback"
@@ -44,7 +44,7 @@ async def google_login(request):
 
 @router.get("/callback")
 async def google_callback(
-    request,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     try:
