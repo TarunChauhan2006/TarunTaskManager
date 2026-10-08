@@ -1,5 +1,8 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 
 from database import Base, engine
 
@@ -13,9 +16,7 @@ from routers.google_auth import router as google_auth_router
 # CREATE DATABASE TABLES
 # =========================================================
 
-Base.metadata.create_all(
-    bind=engine
-)
+Base.metadata.create_all(bind=engine)
 
 
 # =========================================================
@@ -30,40 +31,18 @@ app = FastAPI(
 
 
 # =========================================================
-# CORS CONFIGURATION
+# SESSION MIDDLEWARE
+# Required for Google OAuth / Authlib
 # =========================================================
 
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "https://tarun-task-manager.vercel.app",
-        "https://tarun-task-manager-frontend.onrender.com",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-# =========================================================
-# CREATE DATABASE TABLES
-# =========================================================
-
-Base.metadata.create_all(
-    bind=engine
-)
-
-
-# =========================================================
-# FASTAPI APPLICATION
-# =========================================================
-
-app = FastAPI(
-    title="Tarun Task Manager API",
-    description="Full Stack Task Management Application",
-    version="2.0.0"
+    SessionMiddleware,
+    secret_key=os.getenv(
+        "SESSION_SECRET",
+        "tarun-task-manager-session-secret"
+    ),
+    same_site="lax",
+    https_only=True,
 )
 
 
@@ -89,21 +68,10 @@ app.add_middleware(
 # ROUTERS
 # =========================================================
 
-app.include_router(
-    auth_router
-)
-
-app.include_router(
-    tasks_router
-)
-
-app.include_router(
-    users_router
-)
-
-app.include_router(
-    google_auth_router
-)
+app.include_router(auth_router)
+app.include_router(tasks_router)
+app.include_router(users_router)
+app.include_router(google_auth_router)
 
 
 # =========================================================

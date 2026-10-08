@@ -38,3 +38,4 @@ authlib
 authlib
 
 httpx
+itsdangerous
