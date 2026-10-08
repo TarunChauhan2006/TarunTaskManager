@@ -83,7 +83,7 @@ async def google_callback(
         )
 
         return RedirectResponse(
-            url=f"{frontend_url}/oauth-success?token={access_token}"
+            url=f"{frontend_url}/?token={access_token}"
         )
 
     except Exception as e:
